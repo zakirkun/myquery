@@ -9,8 +9,11 @@ Transform your questions into SQL, visualize data, and get instant insights — 
 [Quick Start](#quick-start) • [Features](#features) • [Documentation](#documentation) • [Examples](#examples)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.1+-green.svg)](https://langchain.com/)
+[![CI](https://github.com/zakirkun/myquery/actions/workflows/ci.yml/badge.svg)](https://github.com/zakirkun/myquery/actions/workflows/ci.yml)
+[![Release](https://github.com/zakirkun/myquery/actions/workflows/release.yml/badge.svg)](https://github.com/zakirkun/myquery/actions/workflows/release.yml)
+[![Docker](https://img.shields.io/badge/docker-available-blue)](https://github.com/zakirkun/myquery/pkgs/container/myquery)
 
 </div>
 
@@ -54,6 +57,41 @@ myquery: [Generates SQL, executes query, displays table, provides AI analysis]
 
 ### Installation
 
+#### Option 1: Quick Install (Recommended)
+
+**Linux & macOS:**
+```bash
+curl -sSL https://install.myquery.dev | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+# Download installer dari GitHub Releases
+# https://github.com/zakirkun/myquery/releases
+```
+
+#### Option 2: Package Manager
+
+**PyPI:**
+```bash
+pip install myquery
+```
+
+**Homebrew (macOS):**
+```bash
+brew tap myquery/tap
+brew install myquery
+```
+
+**Debian/Ubuntu:**
+```bash
+# Download dari Releases
+wget https://github.com/zakirkun/myquery/releases/latest/download/myquery-setup-linux.deb
+sudo dpkg -i myquery-setup-linux.deb
+```
+
+#### Option 3: From Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/zakirkun/myquery.git
@@ -62,9 +100,11 @@ cd myquery
 # Install dependencies
 pip install -r requirements.txt
 
-# Or install in development mode
+# Install in development mode
 pip install -e .
 ```
+
+**Untuk panduan instalasi lengkap, lihat [INSTALL.md](INSTALL.md)**
 
 ### Configuration
 

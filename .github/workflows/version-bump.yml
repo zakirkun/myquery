@@ -1,0 +1,139 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install toml
+      
+      - name: Bump version
+        id: bump
+        run: |
+          python << EOF
+          import toml
+          import re
+          from datetime import datetime
+          
+          # Read current version from pyproject.toml
+          with open('pyproject.toml', 'r') as f:
+              data = toml.load(f)
+          
+          current_version = data['project']['version']
+          major, minor, patch = map(int, current_version.split('.'))
+          
+          # Bump version based on input
+          version_type = '${{ inputs.version_type }}'
+          if version_type == 'major':
+              major += 1
+              minor = 0
+              patch = 0
+          elif version_type == 'minor':
+              minor += 1
+              patch = 0
+          else:  # patch
+              patch += 1
+          
+          new_version = f"{major}.{minor}.{patch}"
+          print(f"Bumping version from {current_version} to {new_version}")
+          
+          # Update pyproject.toml
+          data['project']['version'] = new_version
+          with open('pyproject.toml', 'w') as f:
+              toml.dump(data, f)
+          
+          # Update cli/main.py
+          with open('cli/main.py', 'r') as f:
+              content = f.read()
+          
+          content = re.sub(
+              r'\[dim\]v\d+\.\d+\.\d+\[/dim\]',
+              f'[dim]v{new_version}[/dim]',
+              content
+          )
+          
+          with open('cli/main.py', 'w') as f:
+              f.write(content)
+          
+          # Update CHANGELOG.md
+          today = datetime.now().strftime('%Y-%m-%d')
+          
+          with open('CHANGELOG.md', 'r') as f:
+              changelog = f.read()
+          
+          # Insert new version header after "# Changelog"
+          new_entry = f"\n\n## [{new_version}] - {today}\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Deprecated\n\n### Removed\n\n### Security\n"
+          
+          changelog = changelog.replace(
+              '# Changelog\n',
+              f'# Changelog{new_entry}',
+              1
+          )
+          
+          with open('CHANGELOG.md', 'w') as f:
+              f.write(changelog)
+          
+          # Set output
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              print(f"new_version={new_version}", file=f)
+              print(f"old_version={current_version}", file=f)
+          EOF
+      
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml cli/main.py CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
+          git push
+      
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.bump.outputs.new_version }}" -m "Release v${{ steps.bump.outputs.new_version }}"
+          git push origin "v${{ steps.bump.outputs.new_version }}"
+      
+      - name: Create PR for changelog
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "docs: update changelog for v${{ steps.bump.outputs.new_version }}"
+          title: "Update CHANGELOG for v${{ steps.bump.outputs.new_version }}"
+          body: |
+            ## Version Bump: v${{ steps.bump.outputs.old_version }} → v${{ steps.bump.outputs.new_version }}
+            
+            This PR updates the CHANGELOG for the new release.
+            
+            Please update the CHANGELOG.md with actual changes before merging.
+            
+            ### Checklist
+            - [ ] Update CHANGELOG.md with actual changes
+            - [ ] Verify version numbers in all files
+            - [ ] Update documentation if needed
+          branch: "changelog/v${{ steps.bump.outputs.new_version }}"
+          labels: documentation
+

@@ -1,0 +1,350 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio black ruff mypy
+      
+      - name: Run linters
+        run: |
+          black --check .
+          ruff check .
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v
+
+  build:
+    name: Build Binary - ${{ matrix.os }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            platform: linux
+            arch: x86_64
+            artifact_name: myquery-linux-x86_64
+            binary_ext: ''
+          - os: macos-latest
+            platform: macos
+            arch: x86_64
+            artifact_name: myquery-macos-x86_64
+            binary_ext: ''
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            artifact_name: myquery-macos-arm64
+            binary_ext: ''
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            artifact_name: myquery-windows-x86_64
+            binary_ext: '.exe'
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Build with PyInstaller (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python scripts/build_binary.py --platform ${{ matrix.platform }}
+      
+      - name: Build with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/build_binary.py --platform ${{ matrix.platform }}
+      
+      - name: Create tarball (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          tar -czf ${{ matrix.artifact_name }}.tar.gz myquery${{ matrix.binary_ext }}
+          sha256sum ${{ matrix.artifact_name }}.tar.gz > ${{ matrix.artifact_name }}.tar.gz.sha256
+      
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive -Path myquery${{ matrix.binary_ext }} -DestinationPath ${{ matrix.artifact_name }}.zip
+          (Get-FileHash ${{ matrix.artifact_name }}.zip -Algorithm SHA256).Hash | Out-File -Encoding ASCII ${{ matrix.artifact_name }}.zip.sha256
+      
+      - name: Upload artifacts (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/${{ matrix.artifact_name }}.tar.gz
+            dist/${{ matrix.artifact_name }}.tar.gz.sha256
+      
+      - name: Upload artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/${{ matrix.artifact_name }}.zip
+            dist/${{ matrix.artifact_name }}.zip.sha256
+
+  build-installers:
+    name: Build Installers - ${{ matrix.os }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            installer_name: myquery-setup-windows.exe
+          - os: macos-latest
+            installer_name: myquery-setup-macos.dmg
+          - os: ubuntu-20.04
+            installer_name: myquery-setup-linux.deb
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/download-artifact@v4
+        with:
+          name: myquery-linux-x86_64
+          path: dist/
+      
+      - name: Download macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/download-artifact@v4
+        with:
+          name: myquery-macos-x86_64
+          path: dist/
+      
+      - name: Download Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: myquery-windows-x86_64
+          path: dist/
+      
+      - name: Build Windows Installer
+        if: runner.os == 'Windows'
+        run: |
+          # Extract zip
+          Expand-Archive -Path dist/myquery-windows-x86_64.zip -DestinationPath dist/binary/
+          
+          # Install Inno Setup
+          choco install innosetup -y
+          
+          # Build installer
+          iscc scripts/windows-installer.iss
+        shell: pwsh
+      
+      - name: Build macOS Installer (DMG)
+        if: runner.os == 'macOS'
+        run: |
+          # Extract tarball
+          mkdir -p dist/binary
+          tar -xzf dist/myquery-macos-x86_64.tar.gz -C dist/binary/
+          
+          # Build DMG
+          bash scripts/build-macos-dmg.sh
+      
+      - name: Build Linux Installer (DEB)
+        if: runner.os == 'Linux'
+        run: |
+          # Extract tarball
+          mkdir -p dist/binary
+          tar -xzf dist/myquery-linux-x86_64.tar.gz -C dist/binary/
+          
+          # Build DEB package
+          bash scripts/build-linux-deb.sh
+      
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ runner.os }}
+          path: dist/${{ matrix.installer_name }}
+
+  release:
+    name: Create Release
+    needs: [build, build-installers]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      
+      - name: Create Release Notes
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "# MyQuery $VERSION" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "## 🚀 Downloads" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Binaries" >> RELEASE_NOTES.md
+          echo "- **Linux**: myquery-linux-x86_64.tar.gz" >> RELEASE_NOTES.md
+          echo "- **macOS (Intel)**: myquery-macos-x86_64.tar.gz" >> RELEASE_NOTES.md
+          echo "- **macOS (Apple Silicon)**: myquery-macos-arm64.tar.gz" >> RELEASE_NOTES.md
+          echo "- **Windows**: myquery-windows-x86_64.zip" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Installers" >> RELEASE_NOTES.md
+          echo "- **Windows Installer**: myquery-setup-windows.exe" >> RELEASE_NOTES.md
+          echo "- **macOS Installer**: myquery-setup-macos.dmg" >> RELEASE_NOTES.md
+          echo "- **Linux Installer**: myquery-setup-linux.deb" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "## 📝 Installation" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Quick Install (Linux/macOS)" >> RELEASE_NOTES.md
+          echo '```bash' >> RELEASE_NOTES.md
+          echo 'curl -sSL https://install.myquery.dev | bash' >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Manual Installation" >> RELEASE_NOTES.md
+          echo "1. Download the appropriate binary for your platform" >> RELEASE_NOTES.md
+          echo "2. Extract the archive" >> RELEASE_NOTES.md
+          echo "3. Move the binary to your PATH" >> RELEASE_NOTES.md
+          echo "4. Run \`myquery --help\` to get started" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          
+          # Add changelog if exists
+          if [ -f CHANGELOG.md ]; then
+            echo "## 📋 Changelog" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' >> RELEASE_NOTES.md
+          fi
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.sha256
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: python -m build
+      
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: twine upload dist/*
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout Homebrew tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: myquery/homebrew-tap
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+      
+      - name: Update formula
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          
+          # Download SHA256
+          curl -sL https://github.com/zakirkun/myquery/releases/download/v${VERSION}/myquery-macos-x86_64.tar.gz.sha256 -o /tmp/sha256
+          SHA256=$(cat /tmp/sha256 | awk '{print $1}')
+          
+          # Update formula
+          cat > Formula/myquery.rb <<EOF
+          class Myquery < Formula
+            desc "AI-powered CLI for natural language database interactions"
+            homepage "https://github.com/zakirkun/myquery"
+            url "https://github.com/zakirkun/myquery/releases/download/v${VERSION}/myquery-macos-x86_64.tar.gz"
+            sha256 "${SHA256}"
+            version "${VERSION}"
+          
+            def install
+              bin.install "myquery"
+            end
+          
+            test do
+              system "#{bin}/myquery", "--version"
+            end
+          end
+          EOF
+          
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/myquery.rb
+          git commit -m "Update myquery to v${VERSION}"
+          git push
+
