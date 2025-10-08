@@ -1,6 +1,6 @@
 <div align="center">
 
-# myquery
+<img src="./assets/myquery-logo.png"/>
 
 **Natural language database interactions powered by AI**
 
