@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/myquery-logo.png"/>
+<img src="./assets/myquery-logo.png" alt="myquery logo" width="300" height="300"/>
 
 **Natural language database interactions powered by AI**
 
