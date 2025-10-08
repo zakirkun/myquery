@@ -1,160 +1,221 @@
 # Contributing to myquery
 
-Thank you for your interest in contributing to myquery! 🎉
+Thank you for your interest in contributing to myquery! This document provides guidelines and instructions for contributing.
 
-## 🚀 Getting Started
+## Code of Conduct
 
-1. **Fork the repository**
-2. **Clone your fork:**
+By participating in this project, you agree to maintain a respectful and inclusive environment for everyone.
+
+## How to Contribute
+
+### Reporting Bugs
+
+If you find a bug, please open an issue with:
+
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (OS, Python version, database type)
+- Error messages or logs (if applicable)
+
+### Suggesting Features
+
+We welcome feature suggestions! Please open an issue with:
+
+- Clear description of the feature
+- Use case and benefits
+- Proposed implementation (if applicable)
+
+### Pull Requests
+
+1. **Fork and Clone**
    ```bash
-   git clone https://github.com/your-username/myquery.git
+   git clone https://github.com/zakirkun/myquery.git
    cd myquery
    ```
 
-3. **Set up development environment:**
-   ```bash
-   # Run the setup script
-   bash scripts/setup.sh  # Linux/Mac
-   # or
-   scripts\setup.bat  # Windows
-   ```
-
-4. **Create a feature branch:**
+2. **Create a Branch**
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
-## 🛠️ Development Guidelines
+3. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   pip install -e ".[dev]"
+   ```
+
+4. **Make Changes**
+   - Write clean, documented code
+   - Follow existing code style
+   - Add tests for new features
+   - Update documentation
+
+5. **Run Tests**
+   ```bash
+   # Run all tests
+   pytest tests/
+   
+   # Run with coverage
+   pytest --cov=. tests/
+   
+   # Format code
+   black .
+   
+   # Lint
+   ruff check .
+   ```
+
+6. **Commit Changes**
+   ```bash
+   git add .
+   git commit -m "feat: add amazing feature"
+   ```
+   
+   Use conventional commit messages:
+   - `feat:` — New feature
+   - `fix:` — Bug fix
+   - `docs:` — Documentation changes
+   - `style:` — Code style changes
+   - `refactor:` — Code refactoring
+   - `test:` — Test changes
+   - `chore:` — Maintenance tasks
+
+7. **Push and Create PR**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+   
+   Then open a Pull Request on GitHub with:
+   - Clear description of changes
+   - Link to related issues
+   - Screenshots (if UI changes)
+
+## Development Guidelines
 
 ### Code Style
 
 - Follow PEP 8 style guide
-- Use type hints for function parameters and return values
-- Add docstrings to all functions and classes
-- Keep functions focused and single-purpose
+- Use type hints
+- Write docstrings for all public functions/classes
+- Keep functions small and focused
+- Use meaningful variable names
 
-### Format Code
-
-```bash
-# Format with Black
-black .
-
-# Lint with Ruff
-ruff check .
-
-# Type check with MyPy
-mypy .
-```
-
-### Testing
-
-- Write tests for new features
-- Ensure all tests pass before submitting PR
-- Aim for high test coverage
-
-```bash
-# Run tests
-pytest tests/
-
-# With coverage
-pytest --cov=. tests/
-```
-
-### Commit Messages
-
-Use clear, descriptive commit messages:
-
-```
-✨ Add new feature X
-🐛 Fix bug in Y
-📚 Update documentation for Z
-♻️ Refactor component A
-✅ Add tests for B
-```
-
-## 📝 Pull Request Process
-
-1. **Update documentation** if you're adding/changing features
-2. **Add tests** for new functionality
-3. **Ensure all tests pass**
-4. **Update CHANGELOG.md** with your changes
-5. **Submit PR** with a clear description of changes
-
-### PR Template
-
-```markdown
-## Description
-Brief description of what this PR does
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-Describe the tests you ran
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Tests added and passing
-- [ ] Documentation updated
-- [ ] No breaking changes (or documented)
-```
-
-## 🏗️ Project Structure
-
-Understanding the codebase:
+### Project Structure
 
 ```
 myquery/
-├── cli/              # CLI commands and interface
+├── cli/              # CLI commands
 ├── core/             # Core business logic
 ├── tools/            # LangChain tools
-├── mcp/              # MCP protocol implementation
-├── config/           # Configuration management
-├── tests/            # Test suite
-└── examples/         # Usage examples
+├── web/              # Web UI
+├── mcp/              # MCP server
+├── config/           # Configuration
+└── tests/            # Tests
 ```
 
-## 💡 Feature Suggestions
+### Adding New Features
 
-We welcome feature suggestions! Please:
+1. **Tools** — Place in `tools/` directory
+   - Inherit from `BaseTool`
+   - Use Pydantic for input validation
+   - Write comprehensive docstrings
 
-1. Check existing issues first
-2. Open a new issue with:
-   - Clear description of the feature
-   - Use cases
-   - Potential implementation approach
+2. **CLI Commands** — Place in `cli/commands/`
+   - Use Typer for CLI framework
+   - Follow existing command patterns
+   - Add help text and examples
 
-## 🐛 Bug Reports
+3. **Core Logic** — Place in `core/`
+   - Keep business logic separate from CLI
+   - Make functions testable
+   - Use dependency injection
 
-When reporting bugs, please include:
+### Testing
 
-1. **Environment:** OS, Python version, myquery version
-2. **Steps to reproduce**
-3. **Expected behavior**
-4. **Actual behavior**
-5. **Error messages/logs** (if any)
+- Write tests for all new features
+- Aim for >80% code coverage
+- Use pytest fixtures for common setup
+- Mock external dependencies (OpenAI, databases)
 
-## 📚 Documentation
+Example test:
+```python
+def test_export_to_csv():
+    tool = ExportDataTool()
+    result = tool._run(
+        query_result_json=sample_data,
+        format="csv",
+        filename="test_export"
+    )
+    assert "✅" in result
+    assert os.path.exists("outputs/exports/test_export.csv")
+```
 
-Documentation improvements are always welcome:
+### Documentation
 
-- Fix typos
-- Clarify confusing sections
-- Add examples
-- Improve README
+- Update README.md for user-facing features
+- Update CHANGELOG.md for all changes
+- Add docstrings for all public APIs
+- Include code examples in docstrings
 
-## ❓ Questions
+## Development Setup
 
-Have questions? Feel free to:
+### Prerequisites
 
-- Open a GitHub issue
-- Start a discussion
+- Python 3.8+
+- pip
+- git
+- OpenAI API key (for testing AI features)
+
+### Local Development
+
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run tests
+pytest
+
+# Run myquery locally
+python -m cli.main --help
+```
+
+### Running Locally
+
+```bash
+# Start chat
+python -m cli.main chat start
+
+# Start web UI
+python -m cli.main web start
+
+# Start MCP server
+python -m cli.main server start
+```
+
+## Release Process
+
+(For maintainers)
+
+1. Update version in `pyproject.toml`
+2. Update CHANGELOG.md
+3. Create git tag: `git tag v0.x.0`
+4. Push tag: `git push origin v0.x.0`
+5. Create GitHub release
+
+## Questions?
+
+Feel free to:
+- Open an issue for questions
+- Start a discussion on GitHub
 - Reach out to maintainers
 
-## 🙏 Thank You
-
-Your contributions make myquery better for everyone. Thank you! ❤️
-
+Thank you for contributing! 🎉

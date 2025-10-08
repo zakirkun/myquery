@@ -98,11 +98,36 @@ def start(
                 
                 # Process query with agent
                 with console.status("[bold cyan]🤔 Thinking..."):
-                    response = agent.chat(user_input, debug=debug)
-                
-                # Display response
-                console.print(f"\n[bold green]Assistant:[/bold green]")
-                console.print(Markdown(response))
+                    # Check if this is a query (to show table)
+                    query_keywords = ["show", "list", "get", "find", "select", "count", "sum", "average", "top", 
+                                     "tampilkan", "cari", "lihat", "berapa", "total"]
+                    is_query = any(keyword in user_input.lower() for keyword in query_keywords)
+                    
+                    if is_query and agent.is_connected():
+                        # Execute full query flow to get all results
+                        results = agent.execute_query_flow(user_input, debug=debug, auto_visualize=True)
+                        
+                        if results.get("error"):
+                            console.print(f"\n[red]❌ Error: {results['error']}[/red]")
+                            continue
+                        
+                        # Display formatted table if available
+                        if results.get("formatted_output"):
+                            console.print(results["formatted_output"])
+                        
+                        # Display analysis
+                        console.print(f"\n[bold green]💡 Analysis:[/bold green]")
+                        if results.get("analysis"):
+                            console.print(Markdown(results["analysis"]))
+                        
+                        # Display visualization info
+                        if results.get("visualization"):
+                            console.print(f"\n[bold cyan]{results['visualization']}[/bold cyan]")
+                    else:
+                        # General chat
+                        response = agent.chat(user_input, debug=debug)
+                        console.print(f"\n[bold green]Assistant:[/bold green]")
+                        console.print(Markdown(response))
                 
             except KeyboardInterrupt:
                 console.print("\n\n👋 Goodbye!")
@@ -130,15 +155,34 @@ def show_help():
 - `help` - Show this help message
 
 ### Example Questions
+
+**Data Queries:**
 - "Show me all tables"
 - "List the top 10 customers by revenue"
 - "What are the total sales by region?"
 - "Find all orders from last month"
 - "Show me products with low inventory"
 
+**With Visualization:**
+- "Show me a **chart** of sales by month" → Auto-creates line chart
+- "Display **bar graph** of top products" → Creates bar chart
+- "**Pie chart** of product categories" → Creates pie chart
+- "**Visualize** revenue trends" → Auto-detects best chart
+
+**Indonesian:**
+- "Tampilkan **grafik** penjualan per bulan"
+- "Lihat **tabel** data pelanggan"
+
+### Features
+✨ **Smart Analysis** - AI analyzes results and gives insights
+📊 **Auto-Visualization** - Mention "chart", "graph", or "visualize" to get charts
+📈 **Multiple Chart Types** - Bar, line, pie, scatter, table
+🧠 **Context Aware** - Chat remembers previous questions
+
 ### Tips
 - Ask questions naturally, as if talking to a colleague
 - The assistant will generate and execute SQL queries automatically
+- Add visualization keywords (chart, graph, visualize) for automatic charts
 - Use debug mode (`--debug`) to see the generated SQL
 - Build on previous questions - the chat has memory!
 """

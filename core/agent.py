@@ -15,6 +15,8 @@ from tools import (
     AnalyzeDataTool,
     VisualizeDataTool,
     MultiDBQueryTool,
+    ExportDataTool,
+    QueryOptimizationTool,
 )
 from core.multi_db_manager import MultiDBManager
 from config.logging import get_logger
@@ -57,6 +59,8 @@ class QueryAgent:
         self.analyze_data_tool = AnalyzeDataTool()
         self.visualize_data_tool = VisualizeDataTool()
         self.multi_db_query_tool = MultiDBQueryTool()
+        self.export_data_tool = ExportDataTool()
+        self.query_optimization_tool = QueryOptimizationTool()
         
         # Multi-DB manager
         self.multi_db_manager = MultiDBManager()
@@ -66,6 +70,7 @@ class QueryAgent:
         self.analyze_schema_tool.llm = self.llm
         self.generate_query_tool.llm = self.llm
         self.analyze_data_tool.llm = self.llm
+        self.query_optimization_tool.llm = self.llm
         
         # Tool list
         self.tools = [
@@ -78,6 +83,8 @@ class QueryAgent:
             self.analyze_data_tool,
             self.visualize_data_tool,
             self.multi_db_query_tool,
+            self.export_data_tool,
+            self.query_optimization_tool,
         ]
         
         # Chat history
@@ -147,13 +154,21 @@ class QueryAgent:
         schema_json = self.get_schema()
         return self.analyze_schema_tool._run(schema_json=schema_json)
     
-    def execute_query_flow(self, user_prompt: str, debug: bool = False) -> Dict[str, Any]:
+    def execute_query_flow(
+        self, 
+        user_prompt: str, 
+        debug: bool = False,
+        auto_visualize: bool = True,
+        optimize: bool = False
+    ) -> Dict[str, Any]:
         """
-        Execute complete query flow: generate, execute, format, and analyze.
+        Execute complete query flow: generate, execute, format, analyze, visualize, and optimize.
         
         Args:
             user_prompt: User's natural language query
             debug: Enable debug mode
+            auto_visualize: Auto-detect and create visualization if requested
+            optimize: Show query optimization suggestions
             
         Returns:
             Dictionary with flow results
@@ -164,6 +179,9 @@ class QueryAgent:
             "execution_result": None,
             "formatted_output": None,
             "analysis": None,
+            "visualization": None,
+            "visualization_type": None,
+            "optimization": None,
             "error": None,
         }
         
@@ -211,6 +229,35 @@ class QueryAgent:
             )
             results["analysis"] = analysis
             
+            # Auto-detect if visualization is requested
+            if auto_visualize:
+                viz_type = self._detect_visualization_request(user_prompt)
+                if viz_type:
+                    try:
+                        visualization = self.visualize_data_tool._run(
+                            query_result_json=execution_result,
+                            chart_type=viz_type,
+                            title=user_prompt[:100]
+                        )
+                        results["visualization"] = visualization
+                        results["visualization_type"] = viz_type
+                        logger.info(f"📊 Auto-generated {viz_type} chart")
+                    except Exception as e:
+                        logger.warning(f"Visualization failed: {str(e)}")
+            
+            # Query optimization suggestions
+            if optimize:
+                try:
+                    schema_json = self.get_schema()
+                    optimization = self.query_optimization_tool._run(
+                        sql_query=sql_query,
+                        schema_json=schema_json
+                    )
+                    results["optimization"] = optimization
+                    logger.info("🔍 Query optimization analysis completed")
+                except Exception as e:
+                    logger.warning(f"Optimization failed: {str(e)}")
+            
             # Add to chat history
             self.chat_history.append({
                 "role": "user",
@@ -230,27 +277,40 @@ class QueryAgent:
     
     def chat(self, user_input: str, debug: bool = False) -> str:
         """
-        Handle chat interaction.
+        Handle chat interaction with smart query detection and visualization.
         
         Args:
             user_input: User's input
             debug: Enable debug mode
             
         Returns:
-            Agent's response
+            Agent's response (with embedded visualization info if applicable)
         """
         # Check if this is a query request
-        query_keywords = ["show", "list", "get", "find", "select", "count", "sum", "average", "top"]
+        query_keywords = ["show", "list", "get", "find", "select", "count", "sum", "average", "top", 
+                         "tampilkan", "cari", "lihat", "berapa", "total"]
         is_query = any(keyword in user_input.lower() for keyword in query_keywords)
         
         if is_query and self.connect_db_tool.is_connected():
-            # Execute query flow
-            results = self.execute_query_flow(user_input, debug=debug)
+            # Execute query flow with auto-visualization
+            results = self.execute_query_flow(user_input, debug=debug, auto_visualize=True)
             
             if results.get("error"):
                 return results["error"]
             
-            return results.get("analysis", "Query completed.")
+            # Build response with analysis and visualization info
+            response_parts = []
+            
+            # Add main analysis
+            if results.get("analysis"):
+                response_parts.append(results["analysis"])
+            
+            # Add visualization info if created
+            if results.get("visualization"):
+                viz_msg = f"\n\n📊 **Visualization Created**\n{results['visualization']}"
+                response_parts.append(viz_msg)
+            
+            return "\n".join(response_parts) if response_parts else "Query completed."
         else:
             # Handle general conversation
             return self._general_chat(user_input)
@@ -288,6 +348,53 @@ class QueryAgent:
         
         return "\n".join(context_parts)
     
+    def _detect_visualization_request(self, user_prompt: str) -> Optional[str]:
+        """
+        Detect if user is requesting a visualization and determine chart type.
+        
+        Args:
+            user_prompt: User's query
+            
+        Returns:
+            Chart type or None if no visualization requested
+        """
+        prompt_lower = user_prompt.lower()
+        
+        # Chart type keywords
+        chart_keywords = {
+            "bar": ["bar chart", "bar graph", "barchart", "batang"],
+            "line": ["line chart", "line graph", "trend", "time series", "tren", "grafik garis"],
+            "pie": ["pie chart", "pie graph", "distribution", "proporsi", "persentase"],
+            "scatter": ["scatter", "correlation", "korelasi", "sebaran"],
+            "table": ["table", "tabel", "list", "daftar"],
+        }
+        
+        # Generic visualization keywords
+        viz_keywords = [
+            "chart", "graph", "plot", "visualize", "visualise", "show",
+            "grafik", "visualisasi", "tampilkan", "lihat", "display"
+        ]
+        
+        # Check for specific chart types first
+        for chart_type, keywords in chart_keywords.items():
+            if any(keyword in prompt_lower for keyword in keywords):
+                return chart_type
+        
+        # If generic visualization keywords found, use auto-detection
+        if any(keyword in prompt_lower for keyword in viz_keywords):
+            # Additional heuristics
+            if any(word in prompt_lower for word in ["trend", "over time", "by month", "by year"]):
+                return "line"
+            elif any(word in prompt_lower for word in ["compare", "comparison", "vs", "versus"]):
+                return "bar"
+            elif any(word in prompt_lower for word in ["distribution", "share", "percentage"]):
+                return "pie"
+            else:
+                return "auto"  # Let the tool auto-detect
+        
+        # Default: no visualization unless explicitly requested
+        return None
+    
     def get_table_list(self) -> List[str]:
         """Get list of tables in the database."""
         return self.get_schema_tool.get_table_names()
@@ -300,4 +407,46 @@ class QueryAgent:
         """Clear chat history."""
         self.chat_history = []
         logger.info("Chat history cleared")
+    
+    def export_results(
+        self,
+        query_result_json: str,
+        format: str = "csv",
+        filename: Optional[str] = None,
+        output_dir: str = "outputs/exports"
+    ) -> str:
+        """
+        Export query results to file.
+        
+        Args:
+            query_result_json: Query results as JSON string
+            format: Export format (csv, json, excel, all)
+            filename: Output filename
+            output_dir: Output directory
+            
+        Returns:
+            Export status message
+        """
+        return self.export_data_tool._run(
+            query_result_json=query_result_json,
+            format=format,
+            filename=filename,
+            output_dir=output_dir
+        )
+    
+    def optimize_query(self, sql_query: str) -> str:
+        """
+        Get optimization suggestions for SQL query.
+        
+        Args:
+            sql_query: SQL query to optimize
+            
+        Returns:
+            Optimization suggestions
+        """
+        schema_json = self.get_schema() if self.is_connected() else None
+        return self.query_optimization_tool._run(
+            sql_query=sql_query,
+            schema_json=schema_json
+        )
 

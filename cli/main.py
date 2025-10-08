@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from config import setup_logging, get_logger, settings
-from cli.commands import chat, connect, query, server, visualize, web, multidb
+from cli.commands import chat, connect, query, server, visualize, web, multidb, export
 
 # Initialize Typer app
 app = typer.Typer(
@@ -18,6 +18,7 @@ app = typer.Typer(
 app.add_typer(chat.app, name="chat", help="💬 Interactive chat with database")
 app.add_typer(connect.app, name="connect", help="🔌 Connect to a database")
 app.add_typer(query.app, name="query", help="🔍 Execute queries")
+app.add_typer(export.app, name="export", help="💾 Export query results")
 app.add_typer(visualize.app, name="visualize", help="📊 Data visualization")
 app.add_typer(multidb.app, name="multidb", help="🗄️  Multi-database operations")
 app.add_typer(server.app, name="server", help="🌐 MCP server management")

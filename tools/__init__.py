@@ -8,6 +8,8 @@ from tools.format_table_tool import FormatTableTool
 from tools.analyze_data_tool import AnalyzeDataTool
 from tools.visualize_data_tool import VisualizeDataTool
 from tools.multi_db_query_tool import MultiDBQueryTool
+from tools.export_data_tool import ExportDataTool
+from tools.query_optimization_tool import QueryOptimizationTool
 
 __all__ = [
     "ConnectDBTool",
@@ -19,5 +21,7 @@ __all__ = [
     "AnalyzeDataTool",
     "VisualizeDataTool",
     "MultiDBQueryTool",
+    "ExportDataTool",
+    "QueryOptimizationTool",
 ]
 
