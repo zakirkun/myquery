@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+# 🧩 Task: Schema Exploration Tool
+
+## 🎯 Goal
+Allow users to explore and understand their database schema interactively.
+
+## ⚙️ Requirements
+- Create `get_schema_tool.py` and `analyze_schema_tool.py`.
+- Display schema in a hierarchical format:
+
+Database: sales_db
+├─ customers (id, name, email)
+├─ orders (id, customer_id, total_amount)
+└─ products (id, name, price)
+
+- Provide relationship hints (foreign keys).
+- Cache schema context in session memory.
+
+## 🧠 Steps
+1. Fetch table + column metadata via SQLAlchemy.
+2. Infer relationships automatically.
+3. Store schema in agent context for prompt enhancement.
+4. Expose schema via `/schema` API for Web UI.
+5. Add `myquery schema` CLI command.
+
+## 🧩 Cursor Hints
+- Use `@cursor: define-tool get_schema_tool`
+- Include example output formatting using Rich tree.

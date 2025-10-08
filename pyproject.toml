@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myquery"
+version = "0.1.0"
+description = "AI-powered CLI for natural language database interactions"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "MyQuery Team", email = "team@myquery.dev"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "langchain>=0.1.0",
+    "langchain-openai>=0.0.5",
+    "langchain-community>=0.0.20",
+    "openai>=1.12.0",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "psycopg2-binary>=2.9.9",
+    "pymysql>=1.1.0",
+    "sqlalchemy>=2.0.25",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "asyncio>=3.4.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.12.0",
+    "ruff>=0.1.9",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+myquery = "cli.main:app"
+
+[tool.setuptools]
+packages = ["cli", "core", "tools", "mcp", "config"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+
