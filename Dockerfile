@@ -1,5 +1,5 @@
 # Multi-stage build untuk MyQuery
-FROM python:3.11-slim as builder
+FROM python:3.14-slim as builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -30,7 +30,7 @@ COPY . .
 RUN pip install --user -e .
 
 # Production stage
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
