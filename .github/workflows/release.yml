@@ -111,7 +111,7 @@ jobs:
       
       - name: Upload artifacts (Linux/macOS)
         if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -120,7 +120,7 @@ jobs:
       
       - name: Upload artifacts (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -200,7 +200,7 @@ jobs:
           bash scripts/build-linux-deb.sh
       
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: installer-${{ runner.os }}
           path: dist/${{ matrix.installer_name }}
