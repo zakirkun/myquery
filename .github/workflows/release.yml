@@ -147,21 +147,21 @@ jobs:
       
       - name: Download Linux artifact
         if: runner.os == 'Linux'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: myquery-linux-x86_64
           path: dist/
       
       - name: Download macOS artifact
         if: runner.os == 'macOS'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: myquery-macos-x86_64
           path: dist/
       
       - name: Download Windows artifact
         if: runner.os == 'Windows'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: myquery-windows-x86_64
           path: dist/
@@ -217,7 +217,7 @@ jobs:
       - uses: actions/checkout@v5
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           path: artifacts/
       
